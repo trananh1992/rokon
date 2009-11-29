@@ -4,6 +4,7 @@ import javax.microedition.khronos.opengles.GL10;
 import javax.microedition.khronos.opengles.GL11;
 
 import rokon.Handlers.InputHandler;
+import rokon.Menu.Menu;
 import rokon.OpenGL.GLRenderer;
 import rokon.OpenGL.GLSurfaceView;
 import android.app.Activity;
@@ -11,15 +12,13 @@ import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
 import android.opengl.GLUtils;
-import android.os.PowerManager;
 import android.os.Vibrator;
-import android.os.PowerManager.WakeLock;
 import android.util.DisplayMetrics;
 import android.view.Window;
 import android.view.WindowManager;
 
 /**
- * @version 1.0.0
+ * @version 1.0.1
  * @author Richard Taylor - Sticky Coding
  * 
  * See LICENSE for information about copyright.
@@ -47,7 +46,6 @@ public class Rokon {
 	private Transition _transition;
 	
 	private static Rokon _rokon;
-	private TextureAtlas _textureAtlas;
 	private GLSurfaceView _glSurfaceView;
 	private RenderHook _renderHook;
 	private boolean _hasRenderHook = false;
@@ -65,9 +63,6 @@ public class Rokon {
 	
 	private int _width;
 	private int _height;
-	
-	private PowerManager _powerManager;
-	private WakeLock _wakeLock;
 	
 	private float[] _setBackgroundColor;
 
@@ -88,13 +83,78 @@ public class Rokon {
 	
 	public static int fixedWidth, fixedHeight, screenWidth, screenHeight;
 	private boolean _landscape = false;
+	private boolean _isLoadingScreen = false;
+	private boolean _letterBoxMode = false;
+	public BufferObject letterBoxBuffer1, letterBoxBuffer2;
+	
+	private boolean _forceTextureRefresh = false;
+	private boolean _freezeUntilTexturesReloaded = false;
+	private boolean _forceOffscreenRender = false;
+	
+	private Menu _menu = null;
+	
+	public void showMenu(Menu menu) {
+		_menu = menu;
+		menu.show();
+	}
+	
+	public Menu getActiveMenu() {
+		return _menu;
+	}
+	
+	public boolean isForceOffscreenRender() {
+		return _forceOffscreenRender;
+	}
+	
+	public void forceOffscreenRender() {
+		_forceOffscreenRender = true;		
+	}
+	
+	public void forceOffscreenRender(boolean value) {
+		_forceOffscreenRender = value;
+	}
+	
+	public void forceTextureRefresh() {
+		_forceTextureRefresh = true;
+	}
+	
+	public void forceTextureRefresh(boolean value) {
+		_forceTextureRefresh = value;
+	}
+	
+	public boolean isForceTextureRefresh() {
+		return _forceTextureRefresh;
+	}
+	
+	public void forceLetterBox() {
+		_letterBoxMode = true;
+		letterBoxBuffer1 = new BufferObject(getWidth(), 0, getWidth() + 200, getHeight() + 200);
+		letterBoxBuffer2 = new BufferObject(0, getHeight(), getWidth() + 200, getHeight() + 200);
+	}
+	
+	public void forceLetterBox(boolean value) {
+		if(value)
+			forceLetterBox();
+		_letterBoxMode = false;
+	}
+	
+	public boolean isLetterBox() {
+		return _letterBoxMode;
+	}
+	
+	public void setIsLoadingScreen(boolean value) {
+		_isLoadingScreen = value;
+	}
+	
+	public boolean isLoadingScreen() {
+		return _isLoadingScreen;
+	}
 	
 	public void fps(boolean showFps) {
 		_showFps = showFps;
 	}
 	
 	public void pause() {
-		//Debug.print("paused");
 		_pausedOn = time;
 		_paused = true;
 	}
@@ -126,13 +186,6 @@ public class Rokon {
 	}
 	
 	/**
-	 * @return the current TextureAtlas
-	 */
-	public TextureAtlas getAtlas() {
-		return _textureAtlas;
-	}
-	
-	/**
 	 * Sets a RenderHook to access OpenGL directly. This is currently inactive.
 	 * @param renderHook
 	 */
@@ -147,24 +200,6 @@ public class Rokon {
 	public RenderHook getRenderHook() {
 		return _renderHook;
 	}
-    
-    /**
-     * Sets the wakelock, currently broken.
-     * @param awake
-     */
-    public void setWakeLock(boolean awake) {
-    	if(true)
-    		return;
-    	//Debug.print("Setting WakeLock " + (awake == true ? " on" : " off"));
-    	if(_wakeLock == null) {
-	    	_powerManager = (PowerManager)_activity.getSystemService(Context.POWER_SERVICE);
-	    	_wakeLock = _powerManager.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ON_AFTER_RELEASE, "Rokon");
-    	}
-        if(awake)
-        	_wakeLock.acquire();
-        else
-        	_wakeLock.release();
-    }
 	
 	/**
 	 * Pass through your InputHandler to manage screen touches and Hotspot's
@@ -203,6 +238,7 @@ public class Rokon {
 		fixedHeight = fHeight;
 		Debug.print("Rokon engine created");
 		_rokon = new Rokon(activity);
+		_rokon.setIsLoadingScreen(false);
 		return _rokon;		
 	}
 	
@@ -212,6 +248,7 @@ public class Rokon {
 		Debug.print("Rokon engine created");
 		_rokon = new Rokon(activity);
 		_rokon.setLoading(true);
+		_rokon.setIsLoadingScreen(true);
 		_rokon.setLoadPath(path);
 		return _rokon;
 	}
@@ -224,7 +261,6 @@ public class Rokon {
 		_frameRate = 0;
 		_frameCount = 0;
 		_frameTimer = 0;
-		_textureAtlas = new TextureAtlas();
 	}
 	
 	/**
@@ -273,6 +309,14 @@ public class Rokon {
 		screenHeight = dm.heightPixels;
 		_width = fixedWidth;
 		_height = fixedHeight;
+		
+		float fixedAspect, realAspect;
+		
+		fixedAspect = screenWidth / screenHeight;
+		realAspect = fixedWidth / fixedHeight;
+		
+		if(fixedAspect != realAspect)
+			forceLetterBox();
 
 		Runtime r = Runtime.getRuntime();
 		r.gc();
@@ -309,7 +353,7 @@ public class Rokon {
 	 * @param orientation an orientation constant as used in ActivityInfo.screenOrientation
 	 */
 	public void setOrientation(int orientation) {
-		Debug.print("Orientation changed");
+		//Debug.print("Orientation changed");
 		_activity.setRequestedOrientation(orientation);
 	}
 	
@@ -317,7 +361,7 @@ public class Rokon {
 	 * Removes the title bar and application name from view
 	 */
 	public void setFullscreen() {
-		Debug.print("Set to fullscreen");
+		//Debug.print("Set to fullscreen");
 		_activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         _activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
         _activity.getWindow().requestFeature(Window.FEATURE_NO_TITLE);
@@ -327,7 +371,7 @@ public class Rokon {
 	 * Fixes the screen in landscape mode
 	 */
 	public void fixLandscape() {
-		Debug.print("Fixed in landscape mode");
+		//Debug.print("Fixed in landscape mode");
 		_landscape = true;
 		_activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 	}
@@ -340,7 +384,7 @@ public class Rokon {
 	 * Fixes the screen in portrait mode
 	 */
 	public void fixPortrait() {
-		Debug.print("Fixed in portrait mode");
+		//Debug.print("Fixed in portrait mode");
 		_landscape = false;
 		_activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 	}
@@ -360,6 +404,9 @@ public class Rokon {
 	public void drawFrame(GL11 gl) {
 		try {
 			while(frozen);
+			
+			if(_freezeUntilTexturesReloaded && TextureAtlas.reloadTextures)
+				return;
 			
 			if(!_paused)
 				time = System.currentTimeMillis() - _pauseTime;
@@ -393,6 +440,23 @@ public class Rokon {
 			if(_hasRenderHook)
 				_renderHook.onAfterDraw(gl);
 			
+			if(_letterBoxMode) {
+				gl.glDisableClientState(GL10.GL_TEXTURE_COORD_ARRAY);
+				gl.glDisable(GL10.GL_TEXTURE_2D);
+				
+				gl.glColor4f(0, 0, 0, 1);
+
+				gl.glLoadIdentity();
+				gl.glVertexPointer(2, GL11.GL_FLOAT, 0, letterBoxBuffer1.buffer);		
+				gl.glDrawArrays(GL10.GL_TRIANGLE_STRIP, 0, 4);
+				gl.glLoadIdentity();
+				gl.glVertexPointer(2, GL11.GL_FLOAT, 0, letterBoxBuffer2.buffer);		
+				gl.glDrawArrays(GL10.GL_TRIANGLE_STRIP, 0, 4);
+				
+				gl.glEnableClientState(GL10.GL_TEXTURE_COORD_ARRAY);
+				gl.glEnable(GL10.GL_TEXTURE_2D);
+			}
+			
 			if(time > _frameTimer) {
 				_frameRate = _frameCount;
 				_frameCount = 0;
@@ -417,10 +481,10 @@ public class Rokon {
 	public int tex;
 	private Bitmap bmp;
 	public void loadTextures(GL10 gl) {
-		if(_textureAtlas.readyToLoad) {
-			for(int j = 0; j < _textureAtlas.currentAtlas; j++) {
-				Debug.print("Loading atlas " + j);
-				bmp = _textureAtlas.getBitmap(j);
+		if(TextureAtlas.readyToLoad) {
+			for(int j = 0; j < TextureAtlas.currentAtlas; j++) {
+				//Debug.print("Loading atlas " + j);
+				bmp = TextureAtlas.getBitmap(j);
 				tmp_tex = new int[1];
 				gl.glGenTextures(1, tmp_tex, 0);
 				tex = tmp_tex[0];
@@ -431,12 +495,28 @@ public class Rokon {
 	            gl.glTexParameterf(GL10.GL_TEXTURE_2D, GL10.GL_TEXTURE_WRAP_T, GL10.GL_CLAMP_TO_EDGE);
 	            gl.glTexEnvf(GL10.GL_TEXTURE_ENV, GL10.GL_TEXTURE_ENV_MODE, GL10.GL_MODULATE);
 				GLUtils.texImage2D(GL10.GL_TEXTURE_2D, 0, bmp, 0);
-				Debug.print("Texture created tex=" + tex + " w=" + bmp.getWidth() + " h=" + bmp.getHeight());
-				_textureAtlas.readyToLoad = false;
-				_textureAtlas.ready = true;
-				_textureAtlas.texId[j] = tex;
+				//Debug.print("Texture created tex=" + tex + " w=" + bmp.getWidth() + " h=" + bmp.getHeight());
+				TextureAtlas.readyToLoad = false;
+				TextureAtlas.ready = true;
+				TextureAtlas.texId[j] = tex;
 				currentTexture = tex;
 			}
+		}
+		if(TextureAtlas.reloadTextures) {
+			//Debug.debugInterval("Reached Loading Texture");
+			while(TextureAtlas.reloadTextureIndices.iterator().hasNext()) {
+				int index = TextureAtlas.reloadTextureIndices.iterator().next();
+				if(currentTexture != index) {
+					gl.glBindTexture(GL10.GL_TEXTURE_2D, TextureAtlas.texId[index]);
+					currentTexture = index;
+				}
+				//Debug.print("Updating " + index);
+				GLUtils.texImage2D(GL10.GL_TEXTURE_2D, 0, TextureAtlas.getBitmap(index), 0);
+				TextureAtlas.reloadTextureIndices.remove(index);
+			}
+			TextureAtlas.reloadTextures = false;
+			//Debug.debugInterval("Loading onto hardware");
+			//Debug.debugTimer("Switching textures");
 		}
 	}
 	
@@ -514,7 +594,7 @@ public class Rokon {
 	 * @return Texture pointer
 	 */
 	public Texture createTexture(String path) {
-		return _textureAtlas.createTexture(path);
+		return TextureAtlas.createTexture(path);
 	}
 	
 	/**
@@ -523,7 +603,7 @@ public class Rokon {
 	 * @return Texture object to be applied to sprites
 	 */
 	public Texture createTextureFromBitmap(Bitmap bmp) {
-		return _textureAtlas.createTextureFromBitmap(bmp);
+		return TextureAtlas.createTextureFromBitmap(bmp);
 	}
 	
 	/**
@@ -532,7 +612,7 @@ public class Rokon {
 	 * @return Texture object to be applied to sprites
 	 */
 	public Texture createTextureFromResource(int id) {
-		return _textureAtlas.createTextureFromResource(id);
+		return TextureAtlas.createTextureFromResource(id);
 	}
 	
 	/**
@@ -547,11 +627,11 @@ public class Rokon {
 	 * Packs all the loaded Texture's into one large Bitmap, ready to be set into the hardware. This must be called after all Texture's are created.
 	 */
 	public void prepareTextureAtlas() {
-		_textureAtlas.compute();
+		TextureAtlas.compute();
 	}
 	
 	public void prepareTextureAtlas(int width) {
-		_textureAtlas.compute(width);
+		TextureAtlas.compute(width);
 	}
 	
 	/**
@@ -706,20 +786,20 @@ public class Rokon {
 	
 	public void onResume() {
 		_glSurfaceView.onResume();
-		_textureAtlas.readyToLoad = true;
-	}
-	
-	public TextureAtlas getTextureAtlas() {
-		return _textureAtlas;
+		TextureAtlas.readyToLoad = true;
 	}
 	
 	public void textureSplit() {
-		_textureAtlas.textureSplit();
+		TextureAtlas.textureSplit();
 	}
 	
 	public void end() {
 		Debug.print("############## REQUEST END");
 		_glSurfaceView.mGLThread.requestExitAndWait();
+	}
+	
+	public void freezeUntilTexturesReloaded() {
+		_freezeUntilTexturesReloaded = true;
 	}
 	
 }

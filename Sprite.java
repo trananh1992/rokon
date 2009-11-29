@@ -274,10 +274,10 @@ public class Sprite {
 		y1 = _texture.atlasY + (ys * (_tileY - 1));
 		y2 = _texture.atlasY + (ys * (_tileY - 1)) + ys; 
 		
-		fx1 = x1 / (float)Rokon.getRokon().getAtlas().getWidth();
-		fx2 = x2 / (float)Rokon.getRokon().getAtlas().getWidth();
-		fy1 = y1 / (float)Rokon.getRokon().getAtlas().getHeight(_texture.atlasIndex);
-		fy2 = y2 / (float)Rokon.getRokon().getAtlas().getHeight(_texture.atlasIndex);
+		fx1 = x1 / (float)TextureAtlas.getWidth();
+		fx2 = x2 / (float)TextureAtlas.getWidth();
+		fy1 = y1 / (float)TextureAtlas.getHeight(_texture.atlasIndex);
+		fy2 = y2 / (float)TextureAtlas.getHeight(_texture.atlasIndex);
 		
 		_texBuffer.position(0);
 		
@@ -628,6 +628,9 @@ public class Sprite {
 		if(!_visible)
 			return;
 		
+		if(notOnScreen())
+			return;
+		
 		if(_texture == null)
 			hasTexture = false;
 		else
@@ -637,7 +640,7 @@ public class Sprite {
 			gl.glDisableClientState(GL10.GL_TEXTURE_COORD_ARRAY);
 			gl.glDisable(GL10.GL_TEXTURE_2D);
 		} else {
-			texToBe = Rokon.getRokon().getTextureAtlas().texId[_texture.atlasIndex];
+			texToBe = TextureAtlas.texId[_texture.atlasIndex];
 			if(Rokon.getRokon().currentTexture != texToBe) {
 				gl.glBindTexture(GL10.GL_TEXTURE_2D, texToBe);
 				Rokon.getRokon().currentTexture = texToBe;
@@ -1125,5 +1128,15 @@ public class Sprite {
 		_y = _startY;
 		_width = _startWidth;
 		_height = _startHeight;
+	}
+	
+	public boolean notOnScreen() {
+		if(Rokon.getRokon().isForceOffscreenRender())
+			return false;
+		if(_x + _width < 0 || _x > Rokon.getRokon().getWidth())
+			return true;
+		if(_y + _height < 0 || _y > Rokon.getRokon().getHeight())
+			return true;
+		return false;
 	}
 }

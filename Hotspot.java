@@ -11,6 +11,7 @@ public class Hotspot {
 	public float y;
 	public float width;
 	public float height;
+	private int _id;
 	
 	public Sprite sprite;
 	
@@ -25,7 +26,13 @@ public class Hotspot {
 		this.y = y;
 		this.width = width;
 		this.height = height;
+		_id = -1;
 		sprite = null;
+	}
+	
+	public Hotspot(float x, float y, float width, float height, int id) {
+		this(x, y, width, height);
+		_id = id;
 	}
 	
 	/**
@@ -34,6 +41,19 @@ public class Hotspot {
 	 */
 	public Hotspot(Sprite _sprite) {
 		sprite = _sprite;
+	}
+	
+	public Hotspot(Sprite _sprite, int id) {
+		this(_sprite);
+		_id = id;
+	}
+	
+	public int getId() {
+		return _id;
+	}
+	
+	public void setId(int id) {
+		_id = id;
 	}
 	
 	/**

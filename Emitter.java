@@ -66,10 +66,10 @@ public class Emitter {
 		x2 = _texture.atlasX + _texture.getWidth();
 		y2 = _texture.atlasY + _texture.getHeight();
 		
-		fx1 = x1 / (float)Rokon.getRokon().getAtlas().getWidth();
-		fx2 = x2 / (float)Rokon.getRokon().getAtlas().getWidth();
-		fy1 = y1 / (float)Rokon.getRokon().getAtlas().getHeight(_texture.atlasIndex);
-		fy2 = y2 / (float)Rokon.getRokon().getAtlas().getHeight(_texture.atlasIndex);
+		fx1 = x1 / (float)TextureAtlas.getWidth();
+		fx2 = x2 / (float)TextureAtlas.getWidth();
+		fy1 = y1 / (float)TextureAtlas.getHeight(_texture.atlasIndex);
+		fy2 = y2 / (float)TextureAtlas.getHeight(_texture.atlasIndex);
 		
 		_texBuffer = _makeFloatBuffer(new float[] {
 			fx1, fy1,
@@ -115,7 +115,7 @@ public class Emitter {
 		gl.glTexCoordPointer(2, GL10.GL_FLOAT, 0, _texBuffer);
 		gl.glVertexPointer(2, GL11.GL_FLOAT, 0, GLRenderer.vertexBuffer);
 
-		texToBe = Rokon.getRokon().getTextureAtlas().texId[_texture.atlasIndex];
+		texToBe = TextureAtlas.texId[_texture.atlasIndex];
 		if(Rokon.getRokon().currentTexture != texToBe) {
 			gl.glBindTexture(GL10.GL_TEXTURE_2D, texToBe);
 			Rokon.getRokon().currentTexture = texToBe;
@@ -127,18 +127,27 @@ public class Emitter {
 				if(particleArr[i].dead)
 					particleArr[i] = null;
 				else {
-					gl.glLoadIdentity();
-					gl.glTranslatef(particleArr[i].x, particleArr[i].y, 0);
-					gl.glScalef(particleArr[i].scale, particleArr[i].scale, 0);
-					gl.glColor4f(particleArr[i].red, particleArr[i].green, particleArr[i].blue, particleArr[i].alpha);
-					gl.glDrawArrays(GL10.GL_TRIANGLE_STRIP, 0, 4);
+					if(particleArr[i].x + particleArr[i].scale < 0 || particleArr[i].x > Rokon.getRokon().getWidth() || particleArr[i].y + particleArr[i].scale < 0 || particleArr[i].y > Rokon.getRokon().getHeight()) {
+						if(Rokon.getRokon().isForceOffscreenRender()) {
+							gl.glLoadIdentity();
+							gl.glTranslatef(particleArr[i].x, particleArr[i].y, 0);
+							gl.glScalef(particleArr[i].scale, particleArr[i].scale, 0);
+							gl.glColor4f(particleArr[i].red, particleArr[i].green, particleArr[i].blue, particleArr[i].alpha);
+							gl.glDrawArrays(GL10.GL_TRIANGLE_STRIP, 0, 4);
+						}
+					} else {
+						gl.glLoadIdentity();
+						gl.glTranslatef(particleArr[i].x, particleArr[i].y, 0);
+						gl.glScalef(particleArr[i].scale, particleArr[i].scale, 0);
+						gl.glColor4f(particleArr[i].red, particleArr[i].green, particleArr[i].blue, particleArr[i].alpha);
+						gl.glDrawArrays(GL10.GL_TRIANGLE_STRIP, 0, 4);
+					}
 				}
 			}
 		}
 		
 		gl.glBlendFunc(GL10.GL_SRC_ALPHA, GL10.GL_ONE_MINUS_SRC_ALPHA);
 	}
-	
 	public void setXY(float x, float y) {
 		_x = x;
 		_y = y;

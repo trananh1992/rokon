@@ -106,8 +106,7 @@ public class GLRenderer implements GLSurfaceView.Renderer {
     	if(RokonAudio.singleton != null) {
     		RokonAudio.singleton.destroy();
     	}
-    	TextureAtlas t = Rokon.getRokon().getTextureAtlas();
-    	t.clearAll();
+    	TextureAtlas.clearAll();
     	System.gc();
     }
 

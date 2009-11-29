@@ -29,10 +29,10 @@ public class TextureBuffer {
 		float x2 = texture.atlasX + texture.getWidth();
 		float y2 = texture.atlasY + texture.getHeight();
 		
-		float fx1 = x1 / (float)Rokon.getRokon().getAtlas().getWidth();
-		float fx2 = x2 / (float)Rokon.getRokon().getAtlas().getWidth();
-		float fy1 = y1 / (float)Rokon.getRokon().getAtlas().getHeight(texture.atlasIndex);
-		float fy2 = y2 / (float)Rokon.getRokon().getAtlas().getHeight(texture.atlasIndex);
+		float fx1 = x1 / (float)TextureAtlas.getWidth();
+		float fx2 = x2 / (float)TextureAtlas.getWidth();
+		float fy1 = y1 / (float)TextureAtlas.getHeight(texture.atlasIndex);
+		float fy2 = y2 / (float)TextureAtlas.getHeight(texture.atlasIndex);
 
 		buffer.position(0);
 		

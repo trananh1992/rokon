@@ -1,6 +1,12 @@
 package rokon;
 
+import java.io.IOException;
+
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.Rect;
 
 /**
  * Texture's are very important, and can be applied to Sprite's.
@@ -25,9 +31,18 @@ public class Texture {
 	
 	public String fileName = null;
 	public int suggestAtlas, suggestX, suggestY;
+	
+	private Rect srcRect = null, atlasRect = null;
 
 	public void setBitmap(Bitmap bmp) {
 		_bmp = bmp;
+	}
+	
+	private void updateRect() {
+		if(atlasRect == null)
+			atlasRect = new Rect(atlasX, atlasY, atlasX + _width, atlasY + _height);
+		if(srcRect == null)
+			srcRect = new Rect(0, 0, _width, _height);
 	}
 	
 	public Texture(String path, Bitmap bmp) {
@@ -52,7 +67,38 @@ public class Texture {
 		isAsset = false;
 	}
 	
+	public void replace(String path) {
+		try {
+			Bitmap bmp = BitmapFactory.decodeStream(Rokon.getRokon().getActivity().getAssets().open(path));
+			replace(bmp);
+		} catch (IOException e) {
+			Debug.print("CANNOT FIND " + path);
+			e.printStackTrace();
+		}
+	}
+	
+	public void replace(Bitmap bitmap) {
+		//Debug.startTimer();
+		if(bitmap.getWidth() != _width || bitmap.getHeight() != _height) {
+			Debug.print("updateTexture requires matching dimensions");
+			return;
+		}
+		updateRect();
+		Bitmap atlasBitmap = TextureAtlas.getBitmap(atlasIndex);
+		Canvas canvas = new Canvas(atlasBitmap);
+		canvas.drawBitmap(bitmap, srcRect, atlasRect, TextureAtlas.paint);
+		TextureAtlas.reloadTexture(atlasIndex, atlasBitmap);
+		//Debug.debugInterval("Loaded New Bitmap");
+	}
+	
 	public Bitmap getBitmap() {
+		if(_bmp == null) {
+			Bitmap bitmap = Bitmap.createBitmap(_width, _height, Bitmap.Config.ARGB_8888);
+			Canvas canvas = new Canvas(bitmap);
+			updateRect();
+			canvas.drawBitmap(TextureAtlas.getBitmap(atlasIndex), atlasRect, srcRect, TextureAtlas.paint);
+			return bitmap;
+		}
 		return _bmp;
 	}
 	

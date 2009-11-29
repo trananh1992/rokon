@@ -40,6 +40,8 @@ import rokon.Rokon;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.opengl.GLUtils;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
@@ -77,11 +79,13 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
 	    				event.setLocation(Rokon.screenWidth / Rokon.fixedWidth * event.getX(), Rokon.screenHeight / Rokon.fixedHeight * event.getY());
 						if(event.getX() >= hotspotArr[i].sprite.getX() && event.getX() <= hotspotArr[i].sprite.getX() + hotspotArr[i].sprite.getWidth() && event.getY() >= hotspotArr[i].sprite.getY() && event.getY() <= hotspotArr[i].sprite.getY() + hotspotArr[i].sprite.getHeight()) {
 		    				Rokon.getRokon().getInputHandler().onHotspotTouched(hotspotArr[i]);
+		    				Rokon.getRokon().getInputHandler().onHotspotTouched(hotspotArr[i], event);
 							hit = true;
-						} else if(event.getX() >= hotspotArr[i].x && event.getX() <= hotspotArr[i].x + hotspotArr[i].width && event.getY() >= hotspotArr[i].y && event.getY() <= hotspotArr[i].y + hotspotArr[i].height) {
-							Rokon.getRokon().getInputHandler().onHotspotTouched(hotspotArr[i]);
-							hit = true;	    				
-		    			}
+						} 
+	    			} else if(event.getX() >= hotspotArr[i].x && event.getX() <= hotspotArr[i].x + hotspotArr[i].width && event.getY() >= hotspotArr[i].y && event.getY() <= hotspotArr[i].y + hotspotArr[i].height) {
+						Rokon.getRokon().getInputHandler().onHotspotTouched(hotspotArr[i]);
+	    				Rokon.getRokon().getInputHandler().onHotspotTouched(hotspotArr[i], event);
+						hit = true;
 	    			}
 			
     		}
@@ -96,7 +100,7 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
     }
 
     private void init() {
-    	Debug.print("SurfaceView init()");
+    	//Debug.print("SurfaceView init()");
         mHolder = getHolder();
         mHolder.addCallback(this);
         mHolder.setType(SurfaceHolder.SURFACE_TYPE_GPU);
@@ -111,20 +115,20 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
     }
 
     public void setRenderer(Renderer renderer) {
-    	Debug.print("setRenderer, GLThread starting");
+    	//Debug.print("setRenderer, GLThread starting");
         mGLThread = new GLThread(renderer);
         mGLThread.start();
     }
 
     public void surfaceCreated(SurfaceHolder holder) {
-    	Debug.print("Surface Created");
+    	//Debug.print("Surface Created");
         mGLThread.surfaceCreated();
     }
 
     public void surfaceDestroyed(SurfaceHolder holder) {
-    	Debug.print("Surface Destroyed");
+    	//Debug.print("Surface Destroyed");
         // Surface will be destroyed when we return
-        //mGLThread.surfaceDestroyed();
+        mGLThread.surfaceDestroyed();
     }
 
     public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
@@ -137,7 +141,7 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
      * Inform the view that the activity is paused.
      */
     public void onPause() {
-    	Debug.print("OnPause!");
+    	//Debug.print("OnPause!");
     	Rokon.getRokon().pause();
         mGLThread.onPause();
     }
@@ -146,7 +150,7 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
      * Inform the view that the activity is resumed.
      */
     public void onResume() {
-    	Debug.print("OnResume!");
+    	//Debug.print("OnResume!");
         mGLThread.onResume();
     }
 
@@ -453,14 +457,28 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
                 }
                 if ((w > 0) && (h > 0)) {
                 	if(Rokon.getRokon().isLoading()) {
-                		
-                		Bitmap bmp = null;
-                		
+                		Bitmap tbmp = null;
                 		try {
-                			bmp = BitmapFactory.decodeStream(Rokon.getRokon().getActivity().getAssets().open(Rokon.getRokon().getLoadingImage()));
+                			tbmp = BitmapFactory.decodeStream(Rokon.getRokon().getActivity().getAssets().open(Rokon.getRokon().getLoadingImage()));
                 		} catch (IOException e) {
-                			Debug.print("CANNOT FIND ");
+                			Debug.print("LOADING SCREEN CANNOT FIND");
                 			e.printStackTrace();
+                		}
+                		Bitmap bmp = null;
+                		float realWidth, realHeight;
+                		if(tbmp == null) {
+                			Debug.print("LOADING SCREEN ERROR");
+                			System.exit(0); 
+                			return;
+                		} else {
+                			if(tbmp.getWidth() > 512 || tbmp.getHeight() > 512)
+                				bmp = Bitmap.createBitmap(1024, 1024, Bitmap.Config.ARGB_8888);
+                			else
+                				bmp = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888);
+                			realWidth = tbmp.getWidth();
+                			realHeight = tbmp.getHeight();
+                			Canvas canvas = new Canvas(bmp);
+                			canvas.drawBitmap(tbmp, 0, 0, new Paint());
                 		}
             			
             			int[] tmp_tex = new int[1];
@@ -473,7 +491,7 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
                         gl.glTexParameterf(GL10.GL_TEXTURE_2D, GL10.GL_TEXTURE_WRAP_T, GL10.GL_CLAMP_TO_EDGE);
                         gl.glTexEnvf(GL10.GL_TEXTURE_ENV, GL10.GL_TEXTURE_ENV_MODE, GL10.GL_MODULATE);
             			GLUtils.texImage2D(GL10.GL_TEXTURE_2D, 0, bmp, 0);
-            			Debug.print("Texture created tex=" + tex + " w=" + bmp.getWidth() + " h=" + bmp.getHeight());
+            			//Debug.print("Texture created tex=" + tex + " w=" + bmp.getWidth() + " h=" + bmp.getHeight());
             			
 						gl.glClearColor(0.6f, 0.6f, 1, 1);
 						gl.glVertexPointer(2, GL11.GL_FLOAT, 0, GLRenderer.vertexBuffer);
@@ -485,15 +503,25 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
 						
 						texBuffer.putFloat(0);
 						texBuffer.putFloat(0);
-
-						texBuffer.putFloat(480f / 512f);
-						texBuffer.putFloat(0);
-
-						texBuffer.putFloat(0);
-						texBuffer.putFloat(320f / 512f);
 						
-						texBuffer.putFloat(480f / 512f);
-						texBuffer.putFloat(320f / 512f);
+						float height = bmp.getHeight();
+						float width = bmp.getWidth();
+
+						if(Rokon.getRokon().isLandscape()) {
+							texBuffer.putFloat(realWidth / width);
+							texBuffer.putFloat(0);
+							texBuffer.putFloat(0);
+							texBuffer.putFloat(realHeight / height);
+							texBuffer.putFloat(realWidth / width);
+							texBuffer.putFloat(realHeight / height);
+						} else {
+							texBuffer.putFloat(realHeight / height);
+							texBuffer.putFloat(0);
+							texBuffer.putFloat(0);
+							texBuffer.putFloat(realWidth / width);
+							texBuffer.putFloat(realHeight / height);
+							texBuffer.putFloat(realWidth / width);
+						}
 
 						texBuffer.position(0);
 						
@@ -509,6 +537,10 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
                 			gl.glDrawArrays(GL10.GL_TRIANGLE_STRIP, 0, 4);
                 			
                             mEglHelper.swap();
+                            
+                            if(Rokon.getRokon().isLoadingScreen()) {
+                            	Rokon.getRokon().setIsLoadingScreen(false);
+                            }
                             
                 		}
             			System.gc();

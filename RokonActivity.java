@@ -74,8 +74,8 @@ public abstract class RokonActivity extends Activity {
 	@Override
 	public void onCreate(Bundle b) {
 		super.onCreate(b);
-		singleton = this;
-		onCreate();
+    	singleton = this;
+    	onCreate();
 	}
 	
 	public void createEngine(int width, int height, boolean landscape) {
@@ -97,6 +97,7 @@ public abstract class RokonActivity extends Activity {
 	    				rokon.fixLandscape();
 	    			else
 	    				rokon.fixPortrait();
+	    			while(rokon.isLoadingScreen()) { }
 	    	    	rokon.setBackgroundColor(0.5f, 0.2f, 0.2f);
 	    	    	rokon.setInputHandler(touchHandler);
 	    	    	rokon.setRenderHook(renderHook);

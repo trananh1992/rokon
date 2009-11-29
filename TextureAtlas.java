@@ -4,6 +4,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -31,46 +32,38 @@ public class TextureAtlas {
 	
 	public final static int MAX_TEXTURES = 5;
 	
-	public boolean ready;
-	public boolean readyToLoad;
+	public static boolean ready = false;
+	public static boolean readyToLoad = false;
 	
-	public HashMap<Integer, HashMap<Integer, Texture>> _textureSets;
-	public HashMap<Integer, Texture> _texture;
-	private int _textureCount;
-	private int _textureSetCount;
-	private Bitmap[] _bmp = new Bitmap[MAX_TEXTURES];
-	public int[] texId = new int[MAX_TEXTURES];
+	public static HashMap<Integer, HashMap<Integer, Texture>> _textureSets = new HashMap<Integer, HashMap<Integer, Texture>>();;
+	public static HashMap<Integer, Texture> _texture = new HashMap<Integer, Texture>();;
+	private static int _textureCount = 0;
+	private static int _textureSetCount = 0;
+	private static Bitmap[] _bmp = new Bitmap[MAX_TEXTURES];
+	public static int[] texId = new int[MAX_TEXTURES];
 	
-	private int _greatestWidth;
+	private static int _greatestWidth;
 	
-	private int _width;
-	private int[] _height = new int[MAX_TEXTURES];
+	private static int _width;
+	private static int[] _height = new int[MAX_TEXTURES];
 	
-	public int currentAtlas;
+	public static int currentAtlas = 0;
 	
-	public String idString = "";
+	public static String idString = "";
 	
-	private boolean useOldSettings = false;
+	public static Paint paint = new Paint();
 	
-	public TextureAtlas() {
-		_texture = new HashMap<Integer, Texture>();
-		_textureSets = new HashMap<Integer, HashMap<Integer, Texture>>();
-		_textureCount = 0;
-		_textureSetCount = 0;
-		readyToLoad = false;
-		ready = false;
-		currentAtlas = 0;
-	}
+	public static boolean reloadTextures = false;
+	public static HashSet<Integer> reloadTextureIndices = new HashSet<Integer>();
 	
 	/**
 	 * Resets the TextureAtlas ready to load another set of textures.
 	 */
-	public void reset() {
+	public static void reset() {
 		_texture = new HashMap<Integer, Texture>();
 		_textureCount = 0;
 		readyToLoad = false;
 		ready = false;
-		useOldSettings = false;
 		idString = "";
 		System.gc();
 	}
@@ -78,14 +71,14 @@ public class TextureAtlas {
 	/**
 	 * @return the width of the texture atlas
 	 */
-	public int getWidth() {
+	public static int getWidth() {
 		return _width;
 	}
 	
 	/**
 	 * @return the height of the texture atlas
 	 */
-	public int getHeight(int tex) {
+	public static int getHeight(int tex) {
 		try {
 			return _height[tex];
 		} catch (Exception e ) {
@@ -100,7 +93,7 @@ public class TextureAtlas {
 	 * @param path path to the file in /assets/
 	 * @return Texture pointer
 	 */
-	public Texture createTexture(String path) {
+	public static Texture createTexture(String path) {
 		try {
 			Bitmap bmp = BitmapFactory.decodeStream(Rokon.getRokon().getActivity().getAssets().open(path));
 			Texture texture = new Texture(path, bmp);
@@ -126,7 +119,7 @@ public class TextureAtlas {
 	 * @param resourceId reference to a drawable resource file, as described in R.java
 	 * @return NULL if failed
 	 */
-	public Texture createTextureFromResource(int resourceId) {
+	public static Texture createTextureFromResource(int resourceId) {
 		Bitmap bmp = BitmapFactory.decodeResource(Rokon.getRokon().getActivity().getResources(), resourceId);
 		Texture t = createTextureFromBitmap(bmp);
 		return t;
@@ -137,7 +130,7 @@ public class TextureAtlas {
 	 * @param bmp a Bitmap object to build the texture from
 	 * @return NLUL if failed
 	 */
-	public Texture createTextureFromBitmap(Bitmap bmp) {
+	public static Texture createTextureFromBitmap(Bitmap bmp) {
 		Texture texture = new Texture(bmp);
 		if(bmp.getWidth() > _greatestWidth)
 			_greatestWidth = bmp.getWidth();
@@ -150,7 +143,7 @@ public class TextureAtlas {
 	 * Adds a Texture to the atlas, note: this is done automatically if createTextureXXX functions are used
 	 * @param texture
 	 */
-	public void addTexture(Texture texture) {
+	public static void addTexture(Texture texture) {
 		_texture.put(_textureCount, texture);
 		_textureCount++;
 	}
@@ -158,7 +151,7 @@ public class TextureAtlas {
 	/**
 	 * Calculates a TextureAtlas from all the loaded Texture's
 	 */
-	public void compute() {
+	public static void compute() {
 		compute(1024);
 	}
 	
@@ -172,75 +165,119 @@ public class TextureAtlas {
 	 * @param initwidth the minimum width of the atlas
 	 */
 	@SuppressWarnings("unchecked")
-	public void compute(int initwidth) {
-		_textureSets.put(_textureSetCount, (HashMap<Integer, Texture>)_texture.clone());
-		_height[0] = 0;
-		int i = 0;
-		int curK = 0;
-		_width = initwidth;
-		if(_width == 0)
-			while(_width < _greatestWidth)
-				_width = (int)Math.pow(2, i++);
-		for(i = 0; i < _textureSetCount; i++)
-			for(int h = 0; h < _textureSets.size(); h++)
-				_textureSets.get(h).get(i).inserted = false;
-		for(curK = 0; curK <= _textureSetCount; curK++) {
-			for(i = 0; i < _textureSets.get(curK).size(); i++) {
-				HashMap<Integer, Texture> textureSet = _textureSets.get(curK);
-				int greatestArea = 0;
-				int greatestIndex = -1;
-				for(int j = 0; j < _textureSets.get(curK).size(); j++) {
-					if(!textureSet.get(j).inserted && textureSet.get(j).getWidth() * textureSet.get(j).getHeight() > greatestArea) {
-						greatestIndex = j;
-						greatestArea = textureSet.get(j).getWidth() * textureSet.get(j).getHeight();
-					}
-				}
-				if(greatestIndex != -1) {
-					Texture texture = textureSet.get(greatestIndex);
-					int x = 0;
-					int y = 0;
-					boolean found = false;
-					while(!found) {
-						if(y + texture.getHeight() > 1024) {
-							Debug.print("Current atlas is full, moving on... x=" + x + " y=" + y + " w=" + texture.getWidth() + " h=" + texture.getHeight());
-							saveBitmap(_width);
-							x = 0;
-							y = 0;
-							currentAtlas++;
-							_height[currentAtlas] = 0;
+	public static void compute(int initwidth) {
+		boolean isNew;
+		//Debug.print("# COMPUTING TEXTURES IDSTR=" + idString);
+		if(getLastIdString().equals(idString) && !Rokon.getRokon().isForceTextureRefresh()) {
+			//Debug.print("## MATCHES LAST ID STRING");
+			isNew = false;
+		} else {
+			//Debug.print("## NEW ID STRING");
+			saveLastIdString();
+			isNew = true;
+		}
+		
+		if(isNew) {
+			_textureSets.put(_textureSetCount, (HashMap<Integer, Texture>)_texture.clone());
+			_height[0] = 0;
+			int i = 0;
+			int curK = 0;
+			_width = initwidth;
+			if(_width == 0)
+				while(_width < _greatestWidth)
+					_width = (int)Math.pow(2, i++);
+			for(i = 0; i < _textureSetCount; i++)
+				for(int h = 0; h < _textureSets.size(); h++)
+					_textureSets.get(h).get(i).inserted = false;
+			for(curK = 0; curK <= _textureSetCount; curK++) {
+				for(i = 0; i < _textureSets.get(curK).size(); i++) {
+					HashMap<Integer, Texture> textureSet = _textureSets.get(curK);
+					int greatestArea = 0;
+					int greatestIndex = -1;
+					for(int j = 0; j < _textureSets.get(curK).size(); j++) {
+						if(!textureSet.get(j).inserted && textureSet.get(j).getWidth() * textureSet.get(j).getHeight() > greatestArea) {
+							greatestIndex = j;
+							greatestArea = textureSet.get(j).getWidth() * textureSet.get(j).getHeight();
 						}
-						int resX = isAnyoneWithinX(x, y, x + texture.getWidth(), y + texture.getHeight());
-						int resY = isAnyoneWithinY(x, y, x + texture.getWidth(), y + texture.getHeight());
-						if(resX == -1) {
-							Debug.print("Inserting " + curK + " " + greatestIndex + " to x=" + x + " y=" + y + " onto " + currentAtlas);
-							texture.atlasX = x;
-							texture.atlasY = y;
-							texture.atlasIndex = currentAtlas;
-							texture.inserted = true;
-							found = true;
-							if(texture.atlasY + texture.getHeight() > _height[currentAtlas])
-								_height[currentAtlas] = texture.atlasY + texture.getHeight();
-						} else {
-							x = resX;
-							if(x + texture.getWidth() >= _width) {
+					}
+					if(greatestIndex != -1) {
+						Texture texture = textureSet.get(greatestIndex);
+						int x = 0;
+						int y = 0;
+						boolean found = false;
+						while(!found) {
+							if(y + texture.getHeight() > 1024) {
+								Debug.print("Current atlas is full, moving on... x=" + x + " y=" + y + " w=" + texture.getWidth() + " h=" + texture.getHeight());
+								saveBitmap(_width);
 								x = 0;
-								y = resY;
+								y = 0;
+								currentAtlas++;
+								_height[currentAtlas] = 0;
+							}
+							int resX = isAnyoneWithinX(x, y, x + texture.getWidth(), y + texture.getHeight());
+							int resY = isAnyoneWithinY(x, y, x + texture.getWidth(), y + texture.getHeight());
+							if(resX == -1) {
+								texture.atlasX = x;
+								texture.atlasY = y;
+								texture.atlasIndex = currentAtlas;
+								texture.inserted = true;
+								found = true;
+								if(texture.atlasY + texture.getHeight() > _height[currentAtlas])
+									_height[currentAtlas] = texture.atlasY + texture.getHeight();
+							} else {
+								x = resX;
+								if(x + texture.getWidth() >= _width) {
+									x = 0;
+									y = resY;
+								}
 							}
 						}
-					}
-				} else
-					break;
-					
+					} else
+						break;
+						
+				}
+				saveBitmap(_width);
+				currentAtlas++;
+				_height[currentAtlas] = 0;
+				Debug.print("reached split");
 			}
-			saveBitmap(_width);
-			currentAtlas++;
-			_height[currentAtlas] = 0;
-			Debug.print("reached split");
+			saveNewSettings();
+		} else {
+			//Debug.print("## LOADING OLD TEXTURES");
+			_textureSets.put(_textureSetCount, (HashMap<Integer, Texture>)_texture.clone());
+			loadOldSettings();
+			_height[0] = 0;
+			int i = 0;
+			int curK = 0;
+			_width = initwidth;
+			if(_width == 0)
+				while(_width < _greatestWidth)
+					_width = (int)Math.pow(2, i++);
+			for(i = 0; i < _textureSetCount; i++)
+				for(int h = 0; h < _textureSets.size(); h++)
+					_textureSets.get(h).get(i).inserted = false;
+			for(curK = 0; curK <= _textureSetCount; curK++) {
+				for(i = 0; i < _textureSets.get(curK).size(); i++) {
+					HashMap<Integer, Texture> textureSet = _textureSets.get(curK);
+					Texture texture = textureSet.get(i);
+					texture.atlasX = texture.suggestX;
+					texture.atlasY = texture.suggestY;
+					texture.atlasIndex = texture.suggestAtlas;
+					texture.inserted = true;
+					if(texture.atlasY + texture.getHeight() > _height[currentAtlas])
+						_height[currentAtlas] = texture.atlasY + texture.getHeight();
+				
+				}
+				saveBitmap(_width);
+				currentAtlas++;
+				_height[currentAtlas] = 0;
+				//Debug.print("reached split");
+			}
 		}
 		System.gc();
 	}
 	
-	public void saveBitmap(int _width) {
+	public static void saveBitmap(int _width) {
 		int theight = _height[currentAtlas];
 		_height[currentAtlas] = 0;
 		int i = 0;
@@ -258,7 +295,7 @@ public class TextureAtlas {
 								bmp = BitmapFactory.decodeStream(Rokon.getRokon().getActivity().getAssets().open(texture.assetPath));
 							}
 							catch (Exception e) { 
-								Debug.print("CANNOT FIND CODe 888");
+								Debug.print("CANNOT FIND saveBitmap");
 								System.exit(0);
 							}
 						} else {
@@ -273,11 +310,11 @@ public class TextureAtlas {
 		readyToLoad = true;
 	}
 	
-	public Bitmap getBitmap(int index) {
+	public static Bitmap getBitmap(int index) {
 		return _bmp[index];
 	}
 	
-	private int isAnyoneWithinX(int x, int y, int x2, int y2) {
+	private static int isAnyoneWithinX(int x, int y, int x2, int y2) {
 		for(int i = 0; i < _textureSets.size(); i++)
 			for(int h = 0; h < _textureSets.get(i).size(); h++) {
 				Texture texture = _textureSets.get(i).get(h);
@@ -301,7 +338,7 @@ public class TextureAtlas {
 		return -1;
 	}
 	
-	private int isAnyoneWithinY(int x, int y, int x2, int y2) {
+	private static int isAnyoneWithinY(int x, int y, int x2, int y2) {
 		for(int i = 0; i < _textureSets.size(); i++)
 			for(int h = 0; h < _textureSets.get(i).size(); h++) {
 				Texture texture = _textureSets.get(i).get(h);
@@ -326,15 +363,15 @@ public class TextureAtlas {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public void textureSplit() {
+	public static void textureSplit() {
 		_textureSets.put(_textureSetCount, (HashMap<Integer, Texture>)_texture.clone());
 		_textureSetCount++;
 		_textureCount = 0;
 		_texture.clear();
 	}
 	
-	public void clearAll() {
-		Debug.print("Clearing bitmaps");
+	public static void clearAll() {
+		//Debug.print("Clearing bitmaps");
 		for(HashMap<Integer, Texture> h : _textureSets.values()) {
 			for(Texture t : h.values()) {
 				try {
@@ -349,7 +386,7 @@ public class TextureAtlas {
 		}
 	}
 	
-	private String getLastIdString() {
+	private static String getLastIdString() {
 		try {
 			FileInputStream input = Rokon.getRokon().getActivity().openFileInput("textures");
 			byte[] buffer = new byte[input.available()];
@@ -362,7 +399,7 @@ public class TextureAtlas {
 		return null;
 	}
 
-	private void saveLastIdString() {
+	private static void saveLastIdString() {
 		try {
 			FileOutputStream output = Rokon.getRokon().getActivity().openFileOutput("textures", 0);
 			output.write(idString.getBytes());
@@ -372,10 +409,7 @@ public class TextureAtlas {
 		}
 	}
 	
-	private void loadOldSettings() {
-		useOldSettings = false;
-		if(true)
-			return;
+	private static void loadOldSettings() {
 		try {
 			FileInputStream input = Rokon.getRokon().getActivity().openFileInput("textures_info");
 			byte[] buffer = new byte[input.available()];
@@ -386,20 +420,17 @@ public class TextureAtlas {
 		} catch (Exception e) { 
 			e.printStackTrace();
 		}
-		useOldSettings = false;
 	}
 	
-	private void parseOldSettings(String string) {
+	private static void parseOldSettings(String string) {
 		String line[] = string.split("\n");
 		for(int i = 0; i < line.length; i++) {
 			String info[] = line[i].split(",");
-			Debug.print(" # " + line[i]);
 			for(int curK = 0; curK <= _textureSetCount; curK++) {
 				HashMap<Integer, Texture> textureSet = _textureSets.get(curK);
 				for(int j = 0; j < _textureSets.get(curK).size(); j++) {
 					Texture texture = textureSet.get(j);
 					if(texture.assetPath.equals(info[0])) {
-						Debug.print("found, matching " + info[0]);
 						texture.suggestX = Integer.parseInt(info[1]);
 						texture.suggestY = Integer.parseInt(info[2]);
 						texture.suggestAtlas = Integer.parseInt(info[3]);
@@ -410,7 +441,7 @@ public class TextureAtlas {
 		}
 	}
 	
-	private void saveNewSettings() {
+	private static void saveNewSettings() {
 		String settings = "";
 		for(int curK = 0; curK <= _textureSetCount; curK++) {
 			for(int i = 0; i < _textureSets.get(curK).size(); i++) {
@@ -419,8 +450,6 @@ public class TextureAtlas {
 				settings += texture.assetPath + "," + texture.atlasX + "," + texture.atlasY + "," + texture.atlasIndex + "\n";
 			}
 		}
-		Debug.print("SAVING ###########");
-		Debug.print(settings);
 		try {
 			FileOutputStream output = Rokon.getRokon().getActivity().openFileOutput("textures_info", 0);
 			output.write(settings.getBytes());
@@ -428,5 +457,12 @@ public class TextureAtlas {
 		} catch (Exception e) { 
 			e.printStackTrace();
 		}
+	}
+	
+	public static void reloadTexture(int index, Bitmap bitmap) {
+		reloadTextures = true;
+		if(!reloadTextureIndices.contains(index))
+			reloadTextureIndices.add(index);
+		_bmp[index] = bitmap;
 	}
 }

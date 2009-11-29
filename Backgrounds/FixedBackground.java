@@ -4,9 +4,9 @@ import javax.microedition.khronos.opengles.GL10;
 import javax.microedition.khronos.opengles.GL11;
 
 import rokon.Background;
-import rokon.Debug;
 import rokon.Rokon;
 import rokon.Texture;
+import rokon.TextureAtlas;
 import rokon.TextureBuffer;
 import rokon.OpenGL.GLRenderer;
 
@@ -23,7 +23,7 @@ public class FixedBackground extends Background {
 	
 	private int texToBe;
 	public void drawFrame(GL10 gl) {
-		texToBe = Rokon.getRokon().getTextureAtlas().texId[_buffer.texture.atlasIndex];
+		texToBe = TextureAtlas.texId[_buffer.texture.atlasIndex];
 		if(Rokon.getRokon().currentTexture != texToBe) {
 			gl.glBindTexture(GL10.GL_TEXTURE_2D, texToBe);
 			Rokon.getRokon().currentTexture = texToBe;
